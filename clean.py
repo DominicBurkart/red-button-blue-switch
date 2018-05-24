@@ -1,19 +1,34 @@
-import redis
+from collections import Counter
 
+import redis
+import requests
+
+verbose = True
+
+def c(binary):
+    return Counter(str(int(binary)))
 
 def check(values):
-    # anagram detection. ignore palindromes (numbers that are the reverse of themselves) unless they're unique repeated
-    # items within values (e.g., in the case of the list [b'1331', b'1331', b'34']).
+
+    # anagram detection. ignore identity cases unless they're unique repeated
+    # items within a list (e.g., 1331 in [b'1331', b'1331', b'34']).
     if type(values) is list:
-        if any(i1 != i2 and values[i1][::-1] == values[i2] for i1 in range(len(values)) for i2 in range(len(values))):
+        if verbose: print("Values is a list.")
+        if any(i1 != i2 and c(values[i1]) == c(values[i2]) for i1 in range(len(values)) for i2 in range(len(values))):
+            if verbose: print("Anagram in list found!")
+            return 0
+    elif type(values) is set:
+        if verbose: print("Values is a set.")
+        if any(v1 != v2 and c(v1) == c(v2) for v1 in values for v2 in values):
+            if verbose: print("Anagram in set found!")
             return 0
     else:
-        if any(v1 != v2 and v1[::-1] == v2 for v1 in values for v2 in values):
-            return 0
+        raise AssertionError("Invalid type passed to check: " + str(type(values)) + "\nvalue: " + str(values))
 
     # x / y = 177 detection
     nums = [int(v) for v in values]
     if any(v1 / v2 == 177 for v1 in nums for v2 in nums):
+        if verbose: print("dividend of 177 found!")
         return 0
 
     # return max - min
@@ -29,7 +44,7 @@ def test_check():
     test_lists = [
         (3, [b'1', "2", b'3', "4"]),  # test check works with list
         (0, ["10", b'531', b'3']),  # test x / y = 177 condition returns 0
-        (0, ["123", "321", "11"])  # test for anagrams
+        (0, ["123", b'321', "11"])  # test for anagrams
     ]
     test_values = test_lists + [(r, set(v)) for (r, v) in test_lists]
     for (resp, inp) in test_values:
@@ -60,7 +75,7 @@ def get_values(redis_and_key):
         return r.smembers(key)
 
 
-def test_input(r):
+def test_data(r):
     '''
     data expectations:
     - every value is a set or a list.
@@ -76,11 +91,11 @@ def test_input(r):
         )
     for k in keys:
         values = get_values((r, k))
-        assert type(values) is list or type(values) is set #redundant but comforting check.
+        assert type(values) is list or type(values) is set  # no None values please, redis!
         try:
             if any(int(v) for v in values) < 1:
-                raise AssertionError("Negative or zero integer found out of range in input.\nOffending values: " +
-                                     str([v for v in get_values((r, k))]))
+                raise AssertionError("Negative or zero integer found out of range in input." +
+                                     "\nOffending values: " + str([v for v in get_values((r, k))]))
         except TypeError:
             raise AssertionError("Value which could not be coerced into integer type included in input."
                                  "\nOffending values: " + str([v for v in get_values((r, k))]))
@@ -92,11 +107,13 @@ if __name__ == "__main__":
     r = redis.StrictRedis(host='redis', port=6379, db=0)
 
     if len(sys.argv) > 1 and sys.argv[1] == "test":
-        test_input(r)
+        test_data(r)
         test_check()
 
     # assumes that we can ask the redis server for all the keys at once without clogging anything up.
     # Get the keys, get the values for those keys, and then check the values. Sum output from the values checks.
-    checksum = sum(map(check, map(get_values, ((r, key) for key in r.keys("*")))))
+    checksum = str(sum(map(check, map(get_values, ((r, key) for key in r.keys("*"))))))
 
-    print(checksum)
+    print("http://answer:3000/" + checksum)
+
+    print(requests.get("http://answer:3000/" + checksum))

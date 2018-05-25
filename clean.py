@@ -41,7 +41,6 @@ def check(values):
 
     # x / y = 177 detection
     nums = sorted(int(v) for v in values)
-
     if verbose: print("Searching for values that when divided yield 177.")
     for i in range(len(nums)):
         options = [i + 1, len(nums) - 1]  # the range of values where a division by nums[i] may yield 177.
@@ -138,7 +137,7 @@ if __name__ == "__main__":
         test_check()
 
     # assumes that we can ask the redis server for all the keys at once without clogging anything up.
-    # Get the keys, get the values for those keys, and then check the values. Sum output from the values checks.
+    # Get the keys, get the values for those keys, and then check the values. Sum output from the checks.
     with Pool() as p:
         checksum = str(sum(p.imap_unordered(check, map(get_values, ((r, key) for key in r.keys("*"))))))
 

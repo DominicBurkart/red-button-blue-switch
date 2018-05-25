@@ -1,8 +1,12 @@
-FROM python:3.6.5-alpine3.7
+FROM pypy:3-6
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+RUN set -ex; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+        time
 
 COPY . .
 
-CMD [ "python3", "./clean.py" ]
+CMD ["pypy3", "./clean.py" ]

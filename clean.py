@@ -4,11 +4,12 @@ from multiprocessing import Pool
 import redis
 import requests
 
-verbose = False
+verbose = False  # set to true if you want to see classification (anagram, quotient, or valid) for each case.
+print_division = False  # set to true to see how our search for quotients of 177 progresses within each case.
 
 
-def c(binary):
-    return Counter(str(int(binary)))
+def c(bytestring):
+    return Counter(bytestring.decode('ascii'))
 
 
 def check(values):
@@ -24,8 +25,7 @@ def check(values):
     :return: 0 or the difference between the max and min values.
     '''
 
-    # anagram detection. ignore identity cases unless they're unique repeated
-    # items within a list (e.g., 1331 in [b'1331', b'1331', b'34']).
+    # anagram detection. ignore identity cases unless they're unique repeated items within a list (e.g., [b'1', b'1']).
     if type(values) is list:
         if verbose: print("Values is a list.")
         if any(i1 != i2 and c(values[i1]) == c(values[i2]) for i1 in range(len(values)) for i2 in range(len(values))):
@@ -39,38 +39,46 @@ def check(values):
     else:
         raise AssertionError("Invalid type passed to check: " + str(type(values)) + "\nvalue: " + str(values))
 
-    # x / y = 177 detection
+    # x / y = 177 detection. FYI, this binary search isn't faster than nested for loops for the given (small) input.
     nums = sorted(int(v) for v in values)
-    if verbose: print("Searching for values that when divided yield 177.")
-    for i in range(len(nums)):
+    if print_division: print("Searching for values that when divided yield 177.")
+    exhausted = False
+    i = 0
+    while not exhausted:
         options = [i + 1, len(nums) - 1]  # the range of values where a division by nums[i] may yield 177.
         while options[0] <= options[1]:
-            if verbose: print("range of valid options: " + str(options))
+            if print_division: print("Range of valid options: " + str(options))
             middle = int(sum(options) / 2)
-            if verbose: print("Current dividend: " + str(nums[middle] / nums[i]))
+            if print_division: print("Current quotient: " + str(nums[middle] / nums[i]))
             if nums[middle] / nums[i] == 177:
-                if verbose: print("dividend of 177 found!")
+                if verbose or print_division: print("Quotient of 177 found!")
                 return 0
             elif nums[middle] / nums[i] < 177:
                 options = [middle + 1, options[1]]
             elif nums[middle] / nums[i] > 177:
                 options = [options[0], middle - 1]
-        if verbose: print("\n\n\n")
+        if i == len(nums) or nums[-1] / nums[i] < 177:
+            if print_division: print("No subsequent divisors could yield 177.")
+            exhausted = True
+        else:
+            i += 1
+        if print_division: print("\n\n\n")
 
     # return max - min
+    if verbose: print("Valid case! Returning Max - Min.")
     return nums[-1] - nums[0]
 
 
 def test_check():
     '''
-    Test cases for the rules listed (items in the set can be divided to yield 177, no anagrams).
+    Test cases for the rules listed (items in the set can't be divided to yield 177, no anagrams).
 
     :return: True if check() returns expected values. Throws AssertionError otherwise.
     '''
     test_lists = [
-        (3, [b'1', "2", b'3', "4"]),  # test check works with list
-        (0, ["10", b'531', b'3']),  # test x / y = 177 condition returns 0
-        (0, ["123", b'321', "11"])  # test for anagrams
+        (3, [b'1', b'2', b'3', b'4']),  # test check works with list
+        (0, [b'10', b'531', b'3']),  # test x / y = 177 condition returns 0
+        (0, [b'123', b'321', b'11']),  # test for anagrams
     ]
     test_values = test_lists + [(r, set(v)) for (r, v) in test_lists]
     for (resp, inp) in test_values:
@@ -87,7 +95,7 @@ def get_values(redis_and_key):
     '''
     Given a key, check if it corresponds to a list or a set. Either way, get all values from the redis DB.
 
-    Assumes that we can ask the DB for all of the values for these keys without clogging anything up.
+    Assumes that we can ask the DB for all of the values for this key without clogging anything up.
 
     :param r: active redis client.
     :param key: key to check the type of and return the values of.
@@ -117,7 +125,7 @@ def test_data(r):
         )
     for k in keys:
         values = get_values((r, k))
-        assert type(values) is list or type(values) is set  # no None values please, redis!
+        assert type(values) is list or type(values) is set  # no surprise None values please, redis!
         try:
             if any(int(v) for v in values) < 1:
                 raise AssertionError("Negative or zero integer found out of range in input." +
@@ -133,14 +141,16 @@ if __name__ == "__main__":
     r = redis.StrictRedis(host='redis', port=6379, db=0)
 
     if len(sys.argv) > 1 and sys.argv[1] == "test":
+        print("Checking data...")
         test_data(r)
+        print("Data check complete. Checking the check function...")
         test_check()
+        print("Check complete. Running.")
 
-    # assumes that we can ask the redis server for all the keys at once without clogging anything up.
     # Get the keys, get the values for those keys, and then check the values. Sum output from the checks.
+    # This assumes that we can ask the redis server for all the keys at once without clogging anything up.
+    # This also assumes that we can hold all of the keys in memory after we get them from redis.
     with Pool() as p:
         checksum = str(sum(p.imap_unordered(check, map(get_values, ((r, key) for key in r.keys("*"))))))
-
     print("checksum found: " + checksum)
-
     print(requests.get("http://answer:3000/" + checksum))

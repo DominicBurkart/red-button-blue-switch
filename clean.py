@@ -41,23 +41,24 @@ def check(values):
     # x / y = 177 detection
     nums = sorted(int(v) for v in values)
 
+    if verbose: print("Searching for values that when divided yield 177.")
     for i in range(len(nums)):
         options = [i + 1, len(nums) - 1]  # the range of values where a division by nums[i] may yield 177.
-        while options[0] < options[1]:
+        while options[0] <= options[1]:
+            if verbose: print("range of valid options: "+str(options))
             middle = int(sum(options) / 2)
+            if verbose: print("Current dividend: "+str(nums[middle] / nums[i]))
             if nums[middle] / nums[i] == 177:
+                if verbose: print("dividend of 177 found!")
                 return 0
-            elif nums[middle] / nums[i] > 177:
-                options = [options[0], middle - 1]
             elif nums[middle] / nums[i] < 177:
                 options = [middle + 1, options[1]]
-
-    if any(v1 / v2 == 177 for v1 in nums for v2 in nums):
-        if verbose: print("dividend of 177 found!")
-        return 0
+            elif nums[middle] / nums[i] > 177:
+                options = [options[0], middle - 1]
+        if verbose: print("\n\n\n")
 
     # return max - min
-    return max(nums) - min(nums)
+    return nums[-1] - nums[0]
 
 
 def test_check():

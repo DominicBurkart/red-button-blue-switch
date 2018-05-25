@@ -8,14 +8,10 @@ verbose = False  # set to true if you want to see classification (anagram, quoti
 print_division = False  # set to true to see how our search for quotients of 177 progresses within each case.
 
 
-def c(bytestring):
-    return Counter(bytestring.decode('ascii'))
-
-
 def check(values):
     '''
     Performs the following checks and returns either the difference between the max and the min values, or 0 if the
-    values should be skipped:
+    values should be skipped. Description from task:
 
     Scan the array for any numerical anagrams (123 is a numerical anagram of 321, as is 212 of 221). If it contains any
     numerical anagrams, skip this array and continue to the next. If any two numbers in the array can be divided
@@ -25,15 +21,21 @@ def check(values):
     :return: 0 or the difference between the max and min values.
     '''
 
-    # anagram detection. ignore identity cases unless they're unique repeated items within a list (e.g., [b'1', b'1']).
+    def c(b1, b2):
+        return Counter(b1.decode('ascii')) == Counter(b2.decode('ascii'))
+
+    # Anagram detection. Ignore identity cases unless they're unique repeated items within a list (e.g., [b'1', b'1']).
+    # Only make multisets (Counters) if we have to, and return 0 as soon as we find the first anagram in the case.
     if type(values) is list:
         if verbose: print("Values is a list.")
-        if any(i1 != i2 and c(values[i1]) == c(values[i2]) for i1 in range(len(values)) for i2 in range(len(values))):
+        if any(c(values[i1], values[i2])
+               if i1 != i2 and len(values[i1]) == len(values[i2]) else False
+               for i1 in range(len(values)) for i2 in range(len(values))):
             if verbose: print("Anagram in list found!")
             return 0
     elif type(values) is set:
         if verbose: print("Values is a set.")
-        if any(v1 != v2 and c(v1) == c(v2) for v1 in values for v2 in values):
+        if any(c(v1, v2) if v1 != v2 and len(v1) == len(v2) else False for v1 in values for v2 in values):
             if verbose: print("Anagram in set found!")
             return 0
     else:

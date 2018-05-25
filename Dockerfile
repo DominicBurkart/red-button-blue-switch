@@ -5,4 +5,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["pypy3", "./clean.py" ]
+CMD ["time", "pypy3", "./clean.py" ]

@@ -1,8 +1,8 @@
 from collections import Counter
+from multiprocessing import Pool
 
 import redis
 import requests
-from multiprocessing import Pool
 
 verbose = False
 
@@ -45,9 +45,9 @@ def check(values):
     for i in range(len(nums)):
         options = [i + 1, len(nums) - 1]  # the range of values where a division by nums[i] may yield 177.
         while options[0] <= options[1]:
-            if verbose: print("range of valid options: "+str(options))
+            if verbose: print("range of valid options: " + str(options))
             middle = int(sum(options) / 2)
-            if verbose: print("Current dividend: "+str(nums[middle] / nums[i]))
+            if verbose: print("Current dividend: " + str(nums[middle] / nums[i]))
             if nums[middle] / nums[i] == 177:
                 if verbose: print("dividend of 177 found!")
                 return 0

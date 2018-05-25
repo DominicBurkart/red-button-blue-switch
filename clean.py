@@ -3,12 +3,25 @@ from collections import Counter
 import redis
 import requests
 
-verbose = True
+verbose = False
+
 
 def c(binary):
     return Counter(str(int(binary)))
 
+
 def check(values):
+    '''
+    Performs the following checks and returns either the difference between the max and the min values, or 0 if the
+    values should be skipped:
+
+    Scan the array for any numerical anagrams (123 is a numerical anagram of 321, as is 212 of 221). If it contains any
+    numerical anagrams, skip this array and continue to the next. If any two numbers in the array can be divided
+    together to equal 177, skip this array and continue to the next.
+
+    :param values: either a list or set
+    :return: 0 or the difference between the max and min values.
+    '''
 
     # anagram detection. ignore identity cases unless they're unique repeated
     # items within a list (e.g., 1331 in [b'1331', b'1331', b'34']).
@@ -26,7 +39,19 @@ def check(values):
         raise AssertionError("Invalid type passed to check: " + str(type(values)) + "\nvalue: " + str(values))
 
     # x / y = 177 detection
-    nums = [int(v) for v in values]
+    nums = sorted(int(v) for v in values)
+
+    for i in range(len(nums)):
+        options = [i + 1, len(nums) - 1]  # the range of values where a division by nums[i] may yield 177.
+        while options[0] < options[1]:
+            middle = int(sum(options) / 2)
+            if nums[middle] / nums[i] == 177:
+                return 0
+            elif nums[middle] / nums[i] > 177:
+                options = [options[0], middle - 1]
+            elif nums[middle] / nums[i] < 177:
+                options = [middle + 1, options[1]]
+
     if any(v1 / v2 == 177 for v1 in nums for v2 in nums):
         if verbose: print("dividend of 177 found!")
         return 0
@@ -114,6 +139,6 @@ if __name__ == "__main__":
     # Get the keys, get the values for those keys, and then check the values. Sum output from the values checks.
     checksum = str(sum(map(check, map(get_values, ((r, key) for key in r.keys("*"))))))
 
-    print("http://answer:3000/" + checksum)
+    print("checksum found: " + checksum)
 
     print(requests.get("http://answer:3000/" + checksum))

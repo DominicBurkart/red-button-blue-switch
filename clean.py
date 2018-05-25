@@ -140,7 +140,7 @@ if __name__ == "__main__":
     # assumes that we can ask the redis server for all the keys at once without clogging anything up.
     # Get the keys, get the values for those keys, and then check the values. Sum output from the values checks.
     with Pool() as p:
-        checksum = str(sum(p.map(check, map(get_values, ((r, key) for key in r.keys("*"))))))
+        checksum = str(sum(p.imap_unordered(check, map(get_values, ((r, key) for key in r.keys("*"))))))
 
     print("checksum found: " + checksum)
 
